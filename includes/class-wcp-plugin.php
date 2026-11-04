@@ -354,7 +354,32 @@ final class WCP_Plugin {
             update_option( 'wcp_accent', $color ? $color : '#7855d9' );
             $label = isset( $_POST['wcp_button_label'] ) ? sanitize_text_field( wp_unslash( $_POST['wcp_button_label'] ) ) : 'مشارکت در خرید';
             update_option( 'wcp_button_label', $label ? $label : 'مشارکت در خرید' );
-            echo '<div class="notice notice-success"><p>تنظیمات ذخیره شد.</p></div>';
+            $token_error = null;
+            if ( ! empty( $_POST['wcp_github_remove_token'] ) ) {
+                WCP_GitHub_Updater::delete_token();
+            } elseif ( isset( $_POST['wcp_github_token'] ) && '' !== trim( (string) wp_unslash( $_POST['wcp_github_token'] ) ) ) {
+                $token_result = WCP_GitHub_Updater::store_token( wp_unslash( $_POST['wcp_github_token'] ) );
+                if ( is_wp_error( $token_result ) ) { $token_error = $token_result->get_error_message(); }
+            }
+            if ( $token_error ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( $token_error ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-success"><p>تنظیمات ذخیره شد.</p></div>';
+            }
+        }
+        if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['wcp_check_github'] ) ) {
+            check_admin_referer( 'wcp_check_github' );
+            WCP_GitHub_Updater::clear_cache();
+            $latest = WCP_GitHub_Updater::remote_version( true );
+            if ( is_wp_error( $latest ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( $latest->get_error_message() ) . '</p></div>';
+            } else {
+                if ( function_exists( 'wp_update_plugins' ) ) { wp_update_plugins(); }
+                $message = version_compare( $latest['version'], WCP_VERSION, '>' )
+                    ? 'نسخه جدید ' . $latest['version'] . ' در GitHub موجود است. می‌توانید از صفحه افزونه‌های وردپرس آن را نصب کنید.'
+                    : 'اتصال به GitHub موفق بود؛ افزونه به‌روز است (نسخه ' . $latest['version'] . ').';
+                echo '<div class="notice notice-success"><p>' . esc_html( $message ) . '</p></div>';
+            }
         }
         if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['wcp_retry'] ) ) {
             check_admin_referer( 'wcp_retry' );
@@ -385,8 +410,22 @@ final class WCP_Plugin {
         wp_nonce_field( 'wcp_save_settings' );
         echo '<table class="form-table"><tr><th><label for="wcp_accent">رنگ نوار پیشرفت و دکمه</label></th><td><input type="color" id="wcp_accent" name="wcp_accent" value="' . esc_attr( get_option( 'wcp_accent', '#7855d9' ) ) . '"></td></tr>';
         echo '<tr><th><label for="wcp_button_label">متن دکمه</label></th><td><input class="regular-text" id="wcp_button_label" type="text" name="wcp_button_label" value="' . esc_attr( get_option( 'wcp_button_label', 'مشارکت در خرید' ) ) . '"></td></tr></table>';
+        echo '<h2>به‌روزرسانی خودکار از GitHub</h2>';
+        echo '<p>منبع: <a href="' . esc_url( WCP_GitHub_Updater::UPDATE_URI ) . '" target="_blank" rel="noopener noreferrer">Cajadfa/woo-crowd-purchase</a> | نسخه نصب‌شده: <code>' . esc_html( WCP_VERSION ) . '</code></p>';
+        echo '<p>ریپوی عمومی بدون توکن کار می‌کند. اگر خصوصی شد، Fine-grained PAT با مجوز <code>Contents: Read-only</code> برای همین ریپو ثبت کنید. توکن فقط رمزگذاری‌شده در دیتابیس نگه‌داری می‌شود.</p>';
+        echo '<table class="form-table"><tr><th><label for="wcp_github_token">Fine-grained Personal Access Token</label></th><td>';
+        echo '<input class="regular-text" id="wcp_github_token" type="password" name="wcp_github_token" value="" autocomplete="new-password" spellcheck="false" placeholder="github_pat_…">';
+        echo '<p class="description">' . ( WCP_GitHub_Updater::has_token() ? 'توکن قبلاً ثبت شده است. برای نگه‌داشتن آن، فیلد را خالی بگذارید.' : 'توکنی ثبت نشده؛ برای ریپوی عمومی نیازی به توکن نیست.' ) . '</p>';
+        if ( WCP_GitHub_Updater::has_token() ) {
+            echo '<label><input type="checkbox" name="wcp_github_remove_token" value="1"> حذف توکن ذخیره‌شده</label>';
+        }
+        echo '</td></tr></table>';
         submit_button( 'ذخیره تنظیمات', 'primary', 'wcp_save_settings' );
         echo '</form>';
+        echo '<form method="post" style="margin:12px 0 24px">';
+        wp_nonce_field( 'wcp_check_github' );
+        submit_button( 'بررسی ارتباط و نسخه GitHub', 'secondary', 'wcp_check_github', false );
+        echo '<p class="description">برای نصب خودکار آپدیت‌ها در آینده، گزینه «فعال‌سازی به‌روزرسانی خودکار» این افزونه را در فهرست افزونه‌های وردپرس روشن کنید.</p></form>';
         echo '<h2>دورهای خرید</h2><form method="post">';
         wp_nonce_field( 'wcp_retry' );
         submit_button( 'تلاش مجدد برای نهایی‌کردن دورهای آماده', 'secondary', 'wcp_retry', false );

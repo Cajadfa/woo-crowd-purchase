@@ -2,7 +2,8 @@
 /**
  * Plugin Name: Woo Crowd Purchase
  * Description: Crowdfunded contributions toward WooCommerce simple products; each funded round creates one real completed fulfillment order.
- * Version: 1.0.0
+ * Version: 1.1.0
+ * Update URI: https://github.com/Cajadfa/woo-crowd-purchase
  * Author: Sajad
  * Text Domain: woo-crowd-purchase
  * Requires Plugins: woocommerce
@@ -12,9 +13,12 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'WCP_VERSION', '1.0.0' );
+define( 'WCP_VERSION', '1.1.0' );
 define( 'WCP_FILE', __FILE__ );
 define( 'WCP_PATH', plugin_dir_path( __FILE__ ) );
+
+require_once WCP_PATH . 'includes/class-wcp-github-updater.php';
+WCP_GitHub_Updater::init();
 
 add_action( 'before_woocommerce_init', static function () {
     if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
